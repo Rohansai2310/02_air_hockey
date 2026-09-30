@@ -37,6 +37,8 @@ class GameEngine:
             min_y=MARGIN + PADDLE_RADIUS, max_y=HEIGHT - MARGIN - PADDLE_RADIUS,
         )
         self.ai = ComputerAI()
+        self.player_score = 0
+        self.computer_score = 0
 
     def _launch_puck(self):
         angle_choices = [0.3, 0.6, -0.3, -0.6]
@@ -69,19 +71,39 @@ class GameEngine:
 
         self._handle_goals()
 
+    def _puck_fits_goal(self):
+        """Return whether the entire puck fits vertically through a goal."""
+        return (
+            GOAL_TOP + self.puck.radius <= self.puck.y
+            <= GOAL_BOTTOM - self.puck.radius
+        )
+
     def _handle_goals(self):
         if self.puck.x - self.puck.radius < MARGIN:
-            if GOAL_TOP < self.puck.y < GOAL_BOTTOM:
-                self._reset_puck()
+            if self._puck_fits_goal():
+                # Score only after the whole puck has cleared the outer edge.
+                if self.puck.x + self.puck.radius < 0:
+                    self.computer_score += 1
+                    self._reset_puck()
             else:
                 self.puck.x = MARGIN + self.puck.radius
-                self.puck.vx = -self.puck.vx
+                self.puck.vx = abs(self.puck.vx)
         elif self.puck.x + self.puck.radius > WIDTH - MARGIN:
-            if GOAL_TOP < self.puck.y < GOAL_BOTTOM:
-                self._reset_puck()
+            if self._puck_fits_goal():
+                if self.puck.x - self.puck.radius > WIDTH:
+                    self.player_score += 1
+                    self._reset_puck()
             else:
                 self.puck.x = WIDTH - MARGIN - self.puck.radius
-                self.puck.vx = -self.puck.vx
+                self.puck.vx = -abs(self.puck.vx)
+
+    def get_match_result(self):
+        """Return the result implied by the current score."""
+        if self.player_score > self.computer_score:
+            return "Player wins!"
+        if self.computer_score > self.player_score:
+            return "Computer wins!"
+        return "Draw"
 
     def _reset_puck(self):
         self.puck.x, self.puck.y = WIDTH / 2, HEIGHT / 2
@@ -91,6 +113,14 @@ class GameEngine:
     def draw(self, surface, font):
         from game import renderer
         renderer.draw_table(surface)
+        renderer.draw_text(
+            surface, font, f"Player: {self.player_score}",
+            (MARGIN + 12, MARGIN + 5), renderer.COLOR_PLAYER,
+        )
+        renderer.draw_text(
+            surface, font, f"Computer: {self.computer_score}",
+            (WIDTH - MARGIN - 190, MARGIN + 5), renderer.COLOR_COMPUTER,
+        )
         renderer.draw_paddle(surface, self.player, renderer.COLOR_PLAYER)
         renderer.draw_paddle(surface, self.computer, renderer.COLOR_COMPUTER)
         renderer.draw_puck(surface, self.puck)
