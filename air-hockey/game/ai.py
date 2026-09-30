@@ -22,6 +22,11 @@ class ComputerAI:
         self._delay_counter = 0
         self._target_y = None
 
+    def reset_target(self):
+        """Make the AI aim at the puck's new position on its next update."""
+        self._delay_counter = 0
+        self._target_y = None
+
     def update(self, paddle, puck):
         if self._target_y is None or self._delay_counter <= 0:
             error = random.uniform(-self.tracking_error, self.tracking_error)
