@@ -1,13 +1,11 @@
 """
-GameEngine: owns the puck, both paddles, and the computer AI, and runs
-one frame's worth of game logic.
-
-Starter version: the puck bounces around and paddles can hit it, but
-there is no scoring, no match timer, and the reset that happens after
-a goal is incomplete. That's what Tasks 2-4 fix/add.
+GameEngine: owns the puck, both paddles, the computer AI, and match state.
+It runs one frame's worth of game logic and tracks the timed match result.
 """
 
+import math
 import random
+import time
 
 from game.puck import Puck
 from game.paddle import Paddle
@@ -19,6 +17,7 @@ PLAYER_SPEED = 6
 PUCK_RADIUS = 12
 PADDLE_RADIUS = 28
 INITIAL_PUCK_SPEED = 4.5
+MATCH_DURATION_SECONDS = 30.0
 
 
 class GameEngine:
@@ -39,6 +38,10 @@ class GameEngine:
         self.ai = ComputerAI()
         self.player_score = 0
         self.computer_score = 0
+        self._match_started_at = time.monotonic()
+        self.remaining_time = MATCH_DURATION_SECONDS
+        self.match_over = False
+        self.match_result = None
 
     def _launch_puck(self):
         angle_choices = [0.3, 0.6, -0.3, -0.6]
@@ -47,7 +50,21 @@ class GameEngine:
         self.puck.vx = INITIAL_PUCK_SPEED * direction
         self.puck.vy = INITIAL_PUCK_SPEED * vy_factor
 
+    def _update_match_timer(self):
+        if self.match_over:
+            return
+
+        elapsed = time.monotonic() - self._match_started_at
+        self.remaining_time = max(0.0, MATCH_DURATION_SECONDS - elapsed)
+        if self.remaining_time == 0.0:
+            self.match_over = True
+            self.match_result = self.get_match_result()
+
     def handle_input(self, keys_pressed):
+        self._update_match_timer()
+        if self.match_over:
+            return
+
         import pygame
         dx = dy = 0
         if keys_pressed[pygame.K_UP]:
@@ -61,6 +78,10 @@ class GameEngine:
         self.player.move_by(dx, dy)
 
     def update(self):
+        self._update_match_timer()
+        if self.match_over:
+            return
+
         self.ai.update(self.computer, self.puck)
 
         self.puck.move()
@@ -112,6 +133,7 @@ class GameEngine:
 
     def draw(self, surface, font):
         from game import renderer
+        self._update_match_timer()
         renderer.draw_table(surface)
         renderer.draw_text(
             surface, font, f"Player: {self.player_score}",
@@ -121,6 +143,13 @@ class GameEngine:
             surface, font, f"Computer: {self.computer_score}",
             (WIDTH - MARGIN - 190, MARGIN + 5), renderer.COLOR_COMPUTER,
         )
+        displayed_seconds = math.ceil(self.remaining_time)
+        renderer.draw_text(
+            surface, font, f"Time: {displayed_seconds}",
+            (WIDTH // 2 - 45, MARGIN + 5),
+        )
         renderer.draw_paddle(surface, self.player, renderer.COLOR_PLAYER)
         renderer.draw_paddle(surface, self.computer, renderer.COLOR_COMPUTER)
         renderer.draw_puck(surface, self.puck)
+        if self.match_over:
+            renderer.draw_banner(surface, font, self.match_result)
