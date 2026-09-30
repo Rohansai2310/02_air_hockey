@@ -10,8 +10,12 @@ class Puck:
         self.radius = radius
         self.vx = 0.0
         self.vy = 0.0
+        self.previous_x = x
+        self.previous_y = y
 
     def move(self):
+        self.previous_x = self.x
+        self.previous_y = self.y
         self.x += self.vx
         self.y += self.vy
 
